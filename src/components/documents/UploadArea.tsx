@@ -26,8 +26,8 @@ export function UploadArea() {
             Document upload
           </h2>
         </div>
-        <span className="rounded-sm border border-tl-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-tl-muted">
-          Mock pipeline
+        <span className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-emerald-300">
+          OCR · Persistent storage
         </span>
       </div>
 
@@ -51,7 +51,8 @@ export function UploadArea() {
           <p className="mt-2 max-w-md text-[12px] leading-5 text-tl-muted">
             Officers may upload born-digital PDFs, photographs, and scanner
             output. TIFF/BMP are treated as scanned documents. Maximum 40 MB per
-            file. Processing is simulated — OCR is not connected.
+            file. Files run through real OCR and are saved to the database
+            immediately — nothing is held only in this browser tab.
           </p>
           <button
             type="button"
