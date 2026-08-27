@@ -6,7 +6,6 @@ import {
   downloadComplianceCSV,
   formatAuditTime,
   searchEvents,
-  SESSION_CAN_REVERT,
   SESSION_USER,
   versionsForRecord,
   type AuditActor,
@@ -14,9 +13,16 @@ import {
 } from "@/lib/audit";
 import { useAudit } from "@/lib/audit-store";
 import { ComplianceReportPrint } from "@/components/audit-logs/ComplianceReportPrint";
+import { useAuth } from "@/lib/auth-store";
+import { ROLE_META } from "@/lib/auth";
 
 export function AuditLogsWorkspace() {
-  const { events, versions, currentVersionId, revertToVersion } = useAudit();
+  const { events, versions, currentVersionId, revertToVersion, canRevert } =
+    useAudit();
+  const { session } = useAuth();
+  const displayUser = session
+    ? `${session.name} (${session.employeeId})`
+    : SESSION_USER;
   const [query, setQuery] = useState("");
   const [actor, setActor] = useState<AuditActor | "all">("all");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -54,7 +60,7 @@ export function AuditLogsWorkspace() {
           <p className="mt-1 max-w-3xl text-[13px] leading-5 text-tl-muted">
             Every AI and officer action on the pipeline. Logs are append-only.
             Revert writes a new version and a new audit row; it does not erase
-            history. Session: {SESSION_USER}.
+            history. Session: {displayUser}.
           </p>
         </div>
 
@@ -214,7 +220,7 @@ export function AuditLogsWorkspace() {
                       {item.snapshot.status}
                     </p>
 
-                    {!isCurrent && SESSION_CAN_REVERT ? (
+                    {!isCurrent && canRevert ? (
                       waiting ? (
                         <div className="mt-2 flex gap-2">
                           <button
@@ -243,9 +249,12 @@ export function AuditLogsWorkspace() {
                       )
                     ) : null}
 
-                    {!SESSION_CAN_REVERT && !isCurrent ? (
+                    {!canRevert && !isCurrent ? (
                       <p className="mt-2 text-[11px] text-tl-muted">
-                        Revert requires an authorized officer session.
+                        Revert requires District Collector clearance (L6)
+                        {session
+                          ? ` — you are signed in as ${ROLE_META[session.role].title}.`
+                          : "."}
                       </p>
                     ) : null}
                   </li>
@@ -261,7 +270,7 @@ export function AuditLogsWorkspace() {
         versions={versions}
         generatedAt={formatAuditTime(new Date().toISOString())}
         filterSummary={filterSummary}
-        sessionUser={SESSION_USER}
+        sessionUser={displayUser}
       />
     </div>
   );

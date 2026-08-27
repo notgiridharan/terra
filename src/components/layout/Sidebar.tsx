@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { NAV_ICONS } from "@/components/layout/NavIcons";
 import { useAuth } from "@/lib/auth-store";
+import { canAccessRoute, jurisdictionLabel, ROLE_META } from "@/lib/auth";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") {
@@ -13,9 +14,29 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function LockIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="5" y="11" width="14" height="9" rx="1.5" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const { session } = useAuth();
+  const role = session?.role ?? "VAO";
+  const meta = ROLE_META[role];
 
   return (
     <aside className="flex h-full w-[260px] shrink-0 flex-col border-r border-tl-border bg-tl-sidebar">
@@ -31,6 +52,30 @@ export function Sidebar() {
           {NAV_ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
             const Icon = NAV_ICONS[item.href];
+            const allowed = canAccessRoute(role, item.href);
+
+            if (!allowed) {
+              return (
+                <li key={item.href}>
+                  <div
+                    title="Restricted — role upgrade required"
+                    aria-disabled="true"
+                    className="flex cursor-not-allowed items-center gap-3 rounded-sm border-l-2 border-transparent px-3 py-2 text-[13px] text-tl-muted/40"
+                  >
+                    {Icon ? (
+                      <Icon className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <span className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="flex-1 truncate">{item.label}</span>
+                    <LockIcon className="h-3.5 w-3.5 shrink-0" />
+                  </div>
+                  <p className="px-3 pb-1 text-[10px] leading-tight text-tl-muted/50">
+                    Restricted — role upgrade required
+                  </p>
+                </li>
+              );
+            }
 
             return (
               <li key={item.href}>
@@ -59,8 +104,13 @@ export function Sidebar() {
         <p className="mt-1 text-[13px] text-tl-text">
           {session?.name ?? "—"}
         </p>
-        <p className="text-[11px] text-tl-muted">{session?.role}</p>
-        <p className="text-[11px] text-tl-muted">{session?.office}</p>
+        <p className="text-[11px] text-tl-muted">
+          {meta.title}{" "}
+          <span className="text-tl-gold">· L{meta.level}</span>
+        </p>
+        <p className="text-[11px] text-tl-muted">
+          {session ? jurisdictionLabel(session) : "—"}
+        </p>
       </div>
     </aside>
   );

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DEMO_OFFICER, DEMO_PASSWORD } from "@/lib/auth";
+import { DEMO_OFFICERS, DEMO_PASSWORD, ROLE_META } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-store";
 
 export function LoginForm() {
@@ -23,6 +23,12 @@ export function LoginForm() {
     }
     router.replace("/");
     router.refresh();
+  }
+
+  function fillDemo(id: string) {
+    setEmployeeId(id);
+    setPassword(DEMO_PASSWORD);
+    setError(null);
   }
 
   return (
@@ -87,9 +93,35 @@ export function LoginForm() {
         Authorized government personnel only.
       </p>
 
-      <p className="border border-tl-border bg-tl-bg px-3 py-2 text-[11px] leading-5 text-tl-muted">
-        Demo officer (mock): {DEMO_OFFICER.employeeId} / {DEMO_PASSWORD}
-      </p>
+      <div className="border border-tl-border bg-tl-bg px-3 py-3">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-tl-muted">
+          Demo officer hierarchy (mock — shared password {DEMO_PASSWORD})
+        </p>
+        <ul className="mt-2 space-y-1">
+          {DEMO_OFFICERS.map((officer) => {
+            const meta = ROLE_META[officer.role];
+            return (
+              <li key={officer.employeeId}>
+                <button
+                  type="button"
+                  onClick={() => fillDemo(officer.employeeId)}
+                  className="flex w-full items-center justify-between gap-2 border border-transparent px-2 py-1.5 text-left text-[11px] text-tl-muted transition-colors hover:border-tl-gold/30 hover:bg-tl-gold/5 hover:text-tl-text"
+                >
+                  <span>
+                    <span className="font-mono text-tl-gold">
+                      {officer.employeeId}
+                    </span>{" "}
+                    · {meta.title}
+                  </span>
+                  <span className="rounded-sm border border-tl-border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-tl-muted">
+                    L{meta.level}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </form>
   );
 }

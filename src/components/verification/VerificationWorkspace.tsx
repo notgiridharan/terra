@@ -28,12 +28,16 @@ import {
   seedPipelineActivity,
   useVerification,
 } from "@/lib/verification-store";
+import { useAuth } from "@/lib/auth-store";
+import { canApproveMasterRecord, ROLE_META } from "@/lib/auth";
 
 export function VerificationWorkspace() {
   const { documents, previewUrls, setDocumentStatus } = useDocuments();
   const { actions, resolveForDocument } = useConflictActions();
   const { decisions, activity, recordAction, prependActivity } =
     useVerification();
+  const { session } = useAuth();
+  const canApprove = session ? canApproveMasterRecord(session.role) : false;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [remarks, setRemarks] = useState("");
@@ -99,6 +103,12 @@ export function VerificationWorkspace() {
   const docId = selected.id;
 
   function act(action: OfficerAction) {
+    if (action === "Approve" && !canApprove) {
+      setMessage(
+        "Approve / commit to master DB requires Tahsildar clearance (L4) or above.",
+      );
+      return;
+    }
     if (REMARKS_REQUIRED.includes(action) && !remarks.trim()) {
       setMessage(`Remarks are required for ${action}.`);
       return;
@@ -244,21 +254,39 @@ export function VerificationWorkspace() {
                   "Request Document",
                   "Escalate",
                 ] as OfficerAction[]
-              ).map((action) => (
-                <button
-                  key={action}
-                  type="button"
-                  onClick={() => act(action)}
-                  className={`border px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] ${
-                    recommendation.action === action
-                      ? "border-tl-gold/50 bg-tl-gold/15 text-tl-gold"
-                      : "border-tl-border text-tl-muted hover:text-tl-text"
-                  }`}
-                >
-                  {action}
-                </button>
-              ))}
+              ).map((action) => {
+                const locked = action === "Approve" && !canApprove;
+                return (
+                  <button
+                    key={action}
+                    type="button"
+                    disabled={locked}
+                    title={
+                      locked
+                        ? "Requires Tahsildar clearance (L4) or above"
+                        : undefined
+                    }
+                    onClick={() => act(action)}
+                    className={`border px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] ${
+                      locked
+                        ? "cursor-not-allowed border-tl-border text-tl-muted/40"
+                        : recommendation.action === action
+                          ? "border-tl-gold/50 bg-tl-gold/15 text-tl-gold"
+                          : "border-tl-border text-tl-muted hover:text-tl-text"
+                    }`}
+                  >
+                    {action}
+                    {locked ? " 🔒" : ""}
+                  </button>
+                );
+              })}
             </div>
+            {!canApprove ? (
+              <p className="mt-2 text-[11px] text-tl-muted">
+                Approve / commit to master DB is restricted to Tahsildar
+                {session ? ` — you are signed in as ${ROLE_META[session.role].title}.` : "."}
+              </p>
+            ) : null}
             {message ? (
               <p className="mt-2 text-[12px] text-tl-gold">{message}</p>
             ) : null}

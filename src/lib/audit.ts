@@ -38,9 +38,8 @@ export type AuditState = {
   currentVersionId: Record<string, string>;
 };
 
-/** Current sidebar session may revert versions. */
+/** Fallback label for seeded/historical mock events predating real auth sessions. */
 export const SESSION_USER = "R. Venkatesh (RO-4821)";
-export const SESSION_CAN_REVERT = true;
 
 const dash = "—";
 
