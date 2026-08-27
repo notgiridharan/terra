@@ -241,6 +241,12 @@ export interface RuleOutcome {
   fields: string[];
 }
 
+export type ValidationVerdict =
+  | "VERIFIED"
+  | "VERIFIED_WITH_EXCEPTIONS"
+  | "REQUIRES_MANUAL_VERIFICATION"
+  | "REJECTED_INVALID";
+
 export interface ValidationResult {
   overall: RuleStatus;
   total_checks: number;
@@ -248,6 +254,12 @@ export interface ValidationResult {
   warning: number;
   conflict: number;
   results: RuleOutcome[];
+  verdict: ValidationVerdict;
+  confidence: number;
+  records_checked: number;
+  records_matched: number;
+  historical_chain: string;
+  land_dna: string;
 }
 
 export async function validateRecord(

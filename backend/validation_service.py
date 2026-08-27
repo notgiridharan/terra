@@ -464,6 +464,85 @@ def rule_duplicate_record(record: dict, db: Optional[Session]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Overall verdict (four-tier officer-facing outcome)
+# ---------------------------------------------------------------------------
+
+VERDICT_VERIFIED = "VERIFIED"
+VERDICT_VERIFIED_WITH_EXCEPTIONS = "VERIFIED_WITH_EXCEPTIONS"
+VERDICT_REQUIRES_MANUAL_VERIFICATION = "REQUIRES_MANUAL_VERIFICATION"
+VERDICT_REJECTED_INVALID = "REJECTED_INVALID"
+
+# Conflicts on these rules are treated as forgery/invalidity indicators
+# (duplicate registration, a broken ownership chain, or date manipulation)
+# rather than plain data-quality issues, and push the verdict straight to
+# REJECTED_INVALID instead of just flagging for manual review.
+_FRAUD_INDICATOR_RULES = {"RULE_DUPLICATE_RECORD", "RULE_OWNER_CHAIN", "RULE_DATE_CHRONOLOGY"}
+
+
+def _compute_verdict(results: list[dict]) -> dict:
+    total = len(results)
+    passed = sum(1 for r in results if r["status"] == STATUS_PASSED)
+    warning = sum(1 for r in results if r["status"] == STATUS_WARNING)
+    conflict = sum(1 for r in results if r["status"] == STATUS_CONFLICT)
+
+    fraud_conflicts = [
+        r for r in results
+        if r["status"] == STATUS_CONFLICT
+        and r["rule_id"] in _FRAUD_INDICATOR_RULES
+        and r["severity"] == SEVERITY_HIGH
+    ]
+
+    if fraud_conflicts:
+        verdict = VERDICT_REJECTED_INVALID
+    elif conflict > 0:
+        verdict = VERDICT_REQUIRES_MANUAL_VERIFICATION
+    elif warning > 0:
+        verdict = VERDICT_VERIFIED_WITH_EXCEPTIONS
+    else:
+        verdict = VERDICT_VERIFIED
+
+    base_score = ((passed + warning * 0.5) / total) * 100 if total else 0.0
+    if verdict == VERDICT_REJECTED_INVALID:
+        confidence = min(base_score, 35.0)
+    elif verdict == VERDICT_REQUIRES_MANUAL_VERIFICATION:
+        confidence = min(base_score, 65.0)
+    elif verdict == VERDICT_VERIFIED_WITH_EXCEPTIONS:
+        confidence = min(max(base_score, 70.0), 94.0)
+    else:
+        confidence = max(base_score, 95.0)
+    confidence = int(round(min(100.0, max(0.0, confidence))))
+
+    # Historical chain — driven by the ownership/chain-of-title rule
+    chain_rule = next((r for r in results if r["rule_id"] == "RULE_OWNER_CHAIN"), None)
+    if chain_rule is None or "does not apply" in chain_rule["description"]:
+        historical_chain = "Not Applicable"
+    elif chain_rule["status"] == STATUS_PASSED:
+        historical_chain = "Complete"
+    elif chain_rule["status"] == STATUS_WARNING:
+        historical_chain = "Incomplete"
+    else:
+        historical_chain = "Broken"
+
+    # "Land DNA" — structural parcel identity: area arithmetic + survey format
+    dna_rules = [r for r in results if r["rule_id"] in ("RULE_AREA_ARITHMETIC", "RULE_SURVEY_FORMAT")]
+    if any(r["status"] == STATUS_CONFLICT for r in dna_rules):
+        land_dna = "Inconsistent"
+    elif any(r["status"] == STATUS_WARNING for r in dna_rules):
+        land_dna = "Minor Variance"
+    else:
+        land_dna = "Consistent"
+
+    return {
+        "verdict": verdict,
+        "confidence": confidence,
+        "records_checked": total,
+        "records_matched": passed,
+        "historical_chain": historical_chain,
+        "land_dna": land_dna,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
 
@@ -472,7 +551,8 @@ def validate_record(record: dict, db: Optional[Session] = None) -> dict:
     """
     Run all Indian land-record validation rules against `record` (a flat
     dict of extracted / officer-edited field values) and return a summary
-    plus the individual per-rule outcomes.
+    (including the four-tier officer verdict and confidence score) plus the
+    individual per-rule outcomes.
     """
     results = [
         rule_area_arithmetic(record),
@@ -500,4 +580,5 @@ def validate_record(record: dict, db: Optional[Session] = None) -> dict:
         "warning": warning,
         "conflict": conflict,
         "results": results,
+        **_compute_verdict(results),
     }

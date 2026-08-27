@@ -11,7 +11,10 @@ import {
   type RuleStatus,
   type ValidateRecordPayload,
   type ValidationResult,
+  type ValidationVerdict,
 } from "@/lib/api";
+
+export type { ValidationVerdict } from "@/lib/api";
 
 export const VALIDATION_OUTCOMES = ["Passed", "Warning", "Conflict"] as const;
 export type ValidationOutcome = (typeof VALIDATION_OUTCOMES)[number];
@@ -32,6 +35,12 @@ export type ValidationSummary = {
   conflict: number;
   overall: ValidationOutcome;
   checks: ValidationCheck[];
+  verdict: ValidationVerdict;
+  confidence: number;
+  recordsChecked: number;
+  recordsMatched: number;
+  historicalChain: string;
+  landDna: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -50,6 +59,32 @@ const RULE_LABELS: Record<string, string> = {
   RULE_OWNER_CHAIN: "Ownership & chain of title",
   RULE_DATE_CHRONOLOGY: "Date & chronology consistency",
   RULE_DUPLICATE_RECORD: "Duplicate document check",
+};
+
+export const VERDICT_META: Record<
+  ValidationVerdict,
+  { emoji: string; label: string; badgeClass: string }
+> = {
+  VERIFIED: {
+    emoji: "🟢",
+    label: "VERIFIED",
+    badgeClass: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  },
+  VERIFIED_WITH_EXCEPTIONS: {
+    emoji: "🟡",
+    label: "VERIFIED WITH EXCEPTIONS",
+    badgeClass: "border-tl-gold/40 bg-tl-gold/10 text-tl-gold",
+  },
+  REQUIRES_MANUAL_VERIFICATION: {
+    emoji: "🔴",
+    label: "REQUIRES MANUAL VERIFICATION",
+    badgeClass: "border-red-500/40 bg-red-500/10 text-red-300",
+  },
+  REJECTED_INVALID: {
+    emoji: "⚫",
+    label: "REJECTED / INVALID",
+    badgeClass: "border-white/30 bg-white/10 text-white",
+  },
 };
 
 function toCheck(rule: RuleOutcome): ValidationCheck {
@@ -71,6 +106,12 @@ export function toValidationSummary(result: ValidationResult): ValidationSummary
     conflict: result.conflict,
     overall: STATUS_TO_OUTCOME[result.overall] ?? "Warning",
     checks: result.results.map(toCheck),
+    verdict: result.verdict,
+    confidence: result.confidence,
+    recordsChecked: result.records_checked,
+    recordsMatched: result.records_matched,
+    historicalChain: result.historical_chain,
+    landDna: result.land_dna,
   };
 }
 

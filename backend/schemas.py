@@ -141,3 +141,11 @@ class ValidationResult(BaseModel):
     warning: int
     conflict: int
     results: list[RuleOutcome]
+
+    # Officer-facing four-tier verdict
+    verdict: str = Field(..., description="VERIFIED | VERIFIED_WITH_EXCEPTIONS | REQUIRES_MANUAL_VERIFICATION | REJECTED_INVALID")
+    confidence: int = Field(..., description="0-100 confidence score behind the verdict")
+    records_checked: int
+    records_matched: int
+    historical_chain: str = Field(..., description="Complete | Incomplete | Broken | Not Applicable")
+    land_dna: str = Field(..., description="Consistent | Minor Variance | Inconsistent")
