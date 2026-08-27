@@ -319,3 +319,29 @@ def create_item(body: ItemIn) -> Item:
     item = Item(id=len(items) + 1, title=body.title, village=body.village)
     items.append(item)
     return item
+
+
+# ---------------------------------------------------------------------------
+# RAG Chatbot endpoint
+# ---------------------------------------------------------------------------
+
+from chat_service import chat as rag_chat, get_db_summary
+
+
+class ChatRequest(BaseModel):
+    question: str
+
+
+@app.post("/api/chat")
+def chat_endpoint(body: ChatRequest, db: Session = Depends(get_db)) -> dict:
+    """
+    RAG chatbot: answer questions about land records in the database.
+    Rejects off-topic questions that are not related to land/property data.
+    """
+    return rag_chat(body.question, db)
+
+
+@app.get("/api/chat/summary")
+def chat_summary_endpoint(db: Session = Depends(get_db)) -> dict:
+    """Return a high-level summary of the land records database for the chat UI."""
+    return get_db_summary(db)

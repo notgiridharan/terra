@@ -159,6 +159,27 @@ async function copyText(text: string): Promise<void> {
 // Component
 // ---------------------------------------------------------------------------
 
+const OCR_STORAGE_KEY = "terralens.ocr.lastResult";
+
+function loadSavedResult(): { result: OcrResult; previewUrl: string | null } | null {
+  try {
+    const raw = sessionStorage.getItem(OCR_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveResult(result: OcrResult, previewUrl: string | null) {
+  try {
+    sessionStorage.setItem(
+      OCR_STORAGE_KEY,
+      JSON.stringify({ result, previewUrl }),
+    );
+  } catch { /* quota exceeded — ignore */ }
+}
+
 export function OcrWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -173,6 +194,16 @@ export function OcrWorkspace() {
   const [elapsed, setElapsed]         = useState(0);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  // ── Restore last OCR result from sessionStorage on mount ─────────────────
+  useEffect(() => {
+    const saved = loadSavedResult();
+    if (saved) {
+      setResult(saved.result);
+      setPreviewUrl(saved.previewUrl);
+      setStatus("done");
+    }
+  }, []);
+
   // ── Elapsed timer while processing ───────────────────────────────────────
 
   useEffect(() => {
@@ -184,13 +215,16 @@ export function OcrWorkspace() {
 
   // ── File selection ────────────────────────────────────────────────────────
 
+  const pendingFileRef = useRef<File | null>(null);
+
   const handleFiles = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return;
     const picked = files[0];
     setFile(picked);
+    pendingFileRef.current = picked;
     setResult(null);
     setErrorMsg(null);
-    setStatus("idle");     // re-enable Run button on new file
+    setStatus("idle");
     setRawExpanded(false);
 
     if (picked.type.startsWith("image/")) {
@@ -234,6 +268,7 @@ export function OcrWorkspace() {
       const data: OcrResult = await res.json();
       setResult(data);
       setStatus("done");
+      saveResult(data, previewUrl);
     } catch (err: unknown) {
       const isOffline =
         err instanceof TypeError && err.message.toLowerCase().includes("fetch");
@@ -246,6 +281,14 @@ export function OcrWorkspace() {
       setStatus("error");
     }
   };
+
+  // ── Auto-trigger OCR when a file is selected ──────────────────────────────
+  useEffect(() => {
+    if (pendingFileRef.current && file && status === "idle" && !result) {
+      pendingFileRef.current = null;
+      runOcr();
+    }
+  });
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 

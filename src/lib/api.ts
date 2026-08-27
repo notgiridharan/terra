@@ -277,3 +277,39 @@ export async function validateRecord(
   return res.json() as Promise<ValidationResult>;
 }
 
+
+// ---------------------------------------------------------------------------
+// RAG Chatbot
+// ---------------------------------------------------------------------------
+
+export interface ChatResponse {
+  answer: string;
+  records_used: number;
+  is_land_related: boolean;
+}
+
+export interface ChatSummary {
+  total_records: number;
+  districts: string[];
+  villages: string[];
+  unique_owners: number;
+}
+
+export async function sendChatMessage(question: string): Promise<ChatResponse> {
+  const res = await fetch(`${API_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<ChatResponse>;
+}
+
+export async function fetchChatSummary(): Promise<ChatSummary> {
+  const res = await fetch(`${API_BASE}/api/chat/summary`);
+  if (!res.ok) throw new Error("Could not fetch chat summary.");
+  return res.json() as Promise<ChatSummary>;
+}
