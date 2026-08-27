@@ -46,12 +46,6 @@ export const NAV_ICONS: Record<string, (props: IconProps) => ReactNode> = {
       <rect x="14" y="5" width="7" height="14" rx="1" opacity="0.7" />
     </Icon>
   ),
-  "/extraction": (props) => (
-    <Icon {...props}>
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <path d="M8 9h8M8 12h5M8 15h6" />
-    </Icon>
-  ),
   "/ocr": (props) => (
     <Icon {...props}>
       <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
@@ -68,13 +62,6 @@ export const NAV_ICONS: Record<string, (props: IconProps) => ReactNode> = {
     <Icon {...props}>
       <path d="M12 3l8 4v6c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
       <path d="M9 12l2 2 4-4" />
-    </Icon>
-  ),
-  "/reconciliation": (props) => (
-    <Icon {...props}>
-      <path d="M8 7H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h6" />
-      <path d="M16 17h3a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-6" />
-      <path d="M9 12h6M12 9v6" />
     </Icon>
   ),
   "/conflicts": (props) => (

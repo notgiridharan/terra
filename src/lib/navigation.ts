@@ -26,11 +26,6 @@ export const NAV_ITEMS: NavItem[] = [
     description: "OpenCV deskew, noise removal, enhancement, and text restoration.",
   },
   {
-    label: "Extraction",
-    href: "/extraction",
-    description: "OpenCV preprocessing now; OCR and field extraction will follow.",
-  },
-  {
     label: "OCR",
     href: "/ocr",
     description: "Upload land documents (image, PDF, DOCX) and extract structured fields with PaddleOCR.",
@@ -44,11 +39,6 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Validation",
     href: "/validation",
     description: "Confidence scoring and business-rule checks on extracted data.",
-  },
-  {
-    label: "Reconciliation",
-    href: "/reconciliation",
-    description: "Compare extracted records with existing government land data.",
   },
   {
     label: "Conflicts",
