@@ -82,3 +82,62 @@ class BatchIngestRequest(BaseModel):
 class GeoJSONFeatureCollection(BaseModel):
     type: str = "FeatureCollection"
     features: list[dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# Land Records Validation Engine schemas
+# ---------------------------------------------------------------------------
+
+
+class SubDivision(BaseModel):
+    survey_no: Optional[str] = None
+    area: Optional[float] = None
+
+
+class ValidateRecordRequest(BaseModel):
+    """Flat structured-record payload the validation engine checks. All
+    fields are optional — individual rules degrade to a WARNING when the
+    data they need is missing rather than erroring out."""
+
+    record_id: Optional[int] = Field(None, description="Existing land_records.id, used for duplicate/chain lookups and to exclude self-matches.")
+
+    document_type: Optional[str] = None
+    survey_no: Optional[str] = None
+    khata_no: Optional[str] = None
+    patta_no: Optional[str] = None
+    owner_name: Optional[str] = None
+    owner_father_or_son_name: Optional[str] = None
+    district: Optional[str] = None
+    taluk: Optional[str] = None
+    village: Optional[str] = None
+
+    land_area_hectare: Optional[str] = None
+    land_area_acres: Optional[str] = None
+    land_amount_or_value: Optional[str] = None
+    parent_area_hectare: Optional[float] = Field(None, description="Registered parent-plot area, for transaction/sub-division sum checks.")
+    sub_divisions: Optional[list[SubDivision]] = None
+
+    prev_owner: Optional[str] = None
+    seller_name: Optional[str] = None
+    reg_date: Optional[str] = Field(None, description="dd/mm/yyyy or yyyy-mm-dd")
+    mutation_date: Optional[str] = None
+    order_date: Optional[str] = None
+    issue_date: Optional[str] = None
+
+
+class RuleOutcome(BaseModel):
+    rule_id: str
+    status: str
+    severity: str
+    description: str
+    evidence: str
+    fields: list[str]
+
+
+class ValidationResult(BaseModel):
+    overall: str
+    total_checks: int
+    passed: int
+    warning: int
+    conflict: int
+    results: list[RuleOutcome]

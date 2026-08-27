@@ -24,6 +24,8 @@ from ocr_service import run_ocr, UPLOADS_DIR, SUPPORTED_LANGS
 from database import init_db, get_db
 from db_models import LandRecordDB
 from preprocessing_service import run_pipeline as run_preprocessing_pipeline, SUPPORTED_EXTENSIONS as PREPROCESS_EXTENSIONS
+from validation_service import validate_record
+from schemas import ValidateRecordRequest
 import api_records
 
 
@@ -266,6 +268,25 @@ def preprocess_endpoint(record_id: int, db: Session = Depends(get_db)) -> dict:
     db.commit()
 
     return {"success": True, "record_id": record_id, **result}
+
+
+# ---------------------------------------------------------------------------
+# Land Records Validation Engine endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/validate-record")
+def validate_record_endpoint(
+    payload: ValidateRecordRequest, db: Session = Depends(get_db)
+) -> dict:
+    """
+    Run the Indian land-record business-rule validation engine
+    (area arithmetic, survey-number format, ownership chain of title,
+    date chronology, duplicate record) against a structured record and
+    return a PASSED/WARNING/CONFLICT outcome per rule plus a summary.
+    """
+    record = payload.model_dump()
+    return validate_record(record, db)
 
 
 # ---------------------------------------------------------------------------

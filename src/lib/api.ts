@@ -196,3 +196,72 @@ export async function runOpenCvPreprocessing(recordId: number): Promise<Preproce
   return res.json() as Promise<PreprocessResponse>;
 }
 
+// ---------------------------------------------------------------------------
+// Land Records Validation Engine
+// ---------------------------------------------------------------------------
+
+export type RuleStatus = "PASSED" | "WARNING" | "CONFLICT";
+export type RuleSeverity = "LOW" | "MEDIUM" | "HIGH";
+
+export interface SubDivisionPayload {
+  survey_no?: string | null;
+  area?: number | null;
+}
+
+export interface ValidateRecordPayload {
+  record_id?: number;
+  document_type?: string | null;
+  survey_no?: string | null;
+  khata_no?: string | null;
+  patta_no?: string | null;
+  owner_name?: string | null;
+  owner_father_or_son_name?: string | null;
+  district?: string | null;
+  taluk?: string | null;
+  village?: string | null;
+  land_area_hectare?: string | null;
+  land_area_acres?: string | null;
+  land_amount_or_value?: string | null;
+  parent_area_hectare?: number | null;
+  sub_divisions?: SubDivisionPayload[] | null;
+  prev_owner?: string | null;
+  seller_name?: string | null;
+  reg_date?: string | null;
+  mutation_date?: string | null;
+  order_date?: string | null;
+  issue_date?: string | null;
+}
+
+export interface RuleOutcome {
+  rule_id: string;
+  status: RuleStatus;
+  severity: RuleSeverity;
+  description: string;
+  evidence: string;
+  fields: string[];
+}
+
+export interface ValidationResult {
+  overall: RuleStatus;
+  total_checks: number;
+  passed: number;
+  warning: number;
+  conflict: number;
+  results: RuleOutcome[];
+}
+
+export async function validateRecord(
+  payload: ValidateRecordPayload,
+): Promise<ValidationResult> {
+  const res = await fetch(`${API_BASE}/api/validate-record`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<ValidationResult>;
+}
+

@@ -17,14 +17,15 @@ export function ValidationSummaryBar({ summary }: { summary: ValidationSummary }
         </div>
         <OutcomeBadge outcome={summary.overall} />
       </div>
-      <div className="grid grid-cols-3 divide-x divide-tl-border">
+      <div className="grid grid-cols-4 divide-x divide-tl-border">
+        <Stat label="Total checks" value={summary.checks.length} />
         <Stat label="Passed" value={summary.passed} />
         <Stat label="Warning" value={summary.warning} />
         <Stat label="Conflict" value={summary.conflict} />
       </div>
       <p className="border-t border-tl-border px-4 py-2 text-[12px] text-tl-muted">
-        Checks run against the current Structured Record (mock rules — not a live
-        LRMS query). Officer edits on that page update these results.
+        Checks run against the live TerraLens validation engine, cross-referenced
+        against the land_records database for chain-of-title and duplicate checks.
       </p>
     </section>
   );
