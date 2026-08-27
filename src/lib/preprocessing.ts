@@ -31,6 +31,10 @@ export type PreprocessingState = {
   completedStages: PreprocessStageId[];
   qualityBefore: DocumentQuality;
   qualityAfter: DocumentQuality | null;
+  /** Real per-stage image URLs returned by the OpenCV backend (absent while running the simulated fallback). */
+  stageUrls?: Partial<Record<PreprocessStageId, string>>;
+  /** Which pipeline actually produced this state — real OpenCV or the simulated CSS-filter fallback (used for PDFs). */
+  engine?: "opencv" | "mock";
 };
 
 export const PROCESS_STEPS: PreprocessStageId[] = [
@@ -104,10 +108,13 @@ export function stageLabel(id: PreprocessStageId): string {
 }
 
 export function statusDetail(state: PreprocessingState): string {
+  const engineLabel = state.engine === "mock" ? "simulated" : "OpenCV";
   if (state.status === "Idle") return "OpenCV pipeline not started";
-  if (state.status === "Queued") return "Queued for mock preprocessing";
+  if (state.status === "Queued") return `Queued for ${engineLabel} preprocessing`;
   if (state.status === "Processing") {
-    return `Running ${stageLabel(state.activeStage)} (simulated)`;
+    return `Running ${stageLabel(state.activeStage)} (${engineLabel})`;
   }
-  return "Mock preprocessing complete — OpenCV not connected";
+  return state.engine === "mock"
+    ? "Simulated preprocessing complete — real OpenCV pipeline only supports raster images, not PDFs"
+    : "OpenCV preprocessing complete";
 }

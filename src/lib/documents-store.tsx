@@ -32,6 +32,7 @@ import {
   mockQualityAfter,
   PROCESS_STEPS,
   type PreprocessStageId,
+  type PreprocessingState,
 } from "@/lib/preprocessing";
 import {
   applyFieldEdit,
@@ -43,6 +44,7 @@ import {
   updateRecord,
   deleteRecord,
   ocrUpload,
+  runOpenCvPreprocessing,
   API_BASE,
 } from "@/lib/api";
 
@@ -398,7 +400,60 @@ export function DocumentsProvider({ children }: { children: React.ReactNode }) {
     [persistToDb],
   );
 
-  const runPreprocessing = useCallback(
+  // Extensions the real backend OpenCV pipeline can decode (must match
+  // backend/preprocessing_service.py SUPPORTED_EXTENSIONS).
+  const OPENCV_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"];
+
+  function supportsRealPreprocessing(doc: LandDocument): boolean {
+    const lower = doc.name.toLowerCase();
+    return Boolean(doc.dbId) && OPENCV_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  }
+
+  const runRealPreprocessing = useCallback(
+    async (id: string, dbId: number) => {
+      patchPreprocessing(id, (doc) => ({
+        ...doc,
+        preprocessing: {
+          ...doc.preprocessing,
+          status: "Processing",
+          engine: "opencv",
+          activeStage: "deskew",
+          completedStages: ["original"],
+          qualityAfter: null,
+        },
+      }));
+
+      try {
+        const result = await runOpenCvPreprocessing(dbId);
+        patchPreprocessing(id, (doc) => ({
+          ...doc,
+          preprocessing: {
+            status: "Complete",
+            engine: "opencv",
+            activeStage: "restoration",
+            completedStages: ["original", "deskew", "denoise", "enhancement", "restoration"],
+            qualityBefore: result.qualityBefore as unknown as PreprocessingState["qualityBefore"],
+            qualityAfter: result.qualityAfter as unknown as PreprocessingState["qualityAfter"],
+            stageUrls: Object.fromEntries(
+              Object.entries(result.stageUrls).map(([stage, url]) => [stage, `${API_BASE}${url}`]),
+            ) as PreprocessingState["stageUrls"],
+          },
+        }));
+      } catch (err) {
+        console.error("OpenCV preprocessing failed:", err);
+        setError(
+          `Preprocessing failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        patchPreprocessing(id, (doc) => ({
+          ...doc,
+          preprocessing: { ...doc.preprocessing, status: "Idle", activeStage: "original" },
+        }));
+      }
+    },
+    [patchPreprocessing],
+  );
+
+  const runMockPreprocessing = useCallback(
     (id: string) => {
       const target = documents.find((doc) => doc.id === id);
       if (!target) return;
@@ -413,6 +468,7 @@ export function DocumentsProvider({ children }: { children: React.ReactNode }) {
           ...idlePreprocessing(doc.name),
           qualityBefore: before,
           status: "Queued",
+          engine: "mock",
           activeStage: "original",
           completedStages: ["original"],
         },
@@ -472,6 +528,24 @@ export function DocumentsProvider({ children }: { children: React.ReactNode }) {
       preprocessTimers.current.set(id, handles);
     },
     [clearPreprocessTimers, documents, patchPreprocessing],
+  );
+
+  const runPreprocessing = useCallback(
+    (id: string) => {
+      const target = documents.find((doc) => doc.id === id);
+      if (!target) return;
+
+      if (supportsRealPreprocessing(target)) {
+        clearPreprocessTimers(id);
+        runRealPreprocessing(id, target.dbId as number);
+      } else {
+        // PDFs (and documents not yet persisted with a DB id) fall back to
+        // the simulated CSS-filter pipeline — the OpenCV endpoint only
+        // decodes raster images.
+        runMockPreprocessing(id);
+      }
+    },
+    [documents, clearPreprocessTimers, runRealPreprocessing, runMockPreprocessing],
   );
 
   const updateStructuredField = useCallback(

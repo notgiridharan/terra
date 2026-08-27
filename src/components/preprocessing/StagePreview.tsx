@@ -30,8 +30,12 @@ export function StagePreview({
     (doc.mimeType.startsWith("image/") ||
       previewUrl?.includes("/uploads/") ||
       previewUrl?.startsWith("blob:"));
-  // Don't apply fake CSS filter when we have the real preprocessed image
-  const isRealPreprocessed = previewUrl === doc.preprocessedUrl && Boolean(doc.preprocessedUrl);
+  // Never fake-distort the real original scan, and skip the CSS filter
+  // whenever the backend's real OpenCV pipeline produced this stage's image.
+  const isRealPreprocessed =
+    stage === "original" ||
+    (doc.preprocessing.engine === "opencv" && Boolean(doc.preprocessing.stageUrls?.[stage])) ||
+    (previewUrl === doc.preprocessedUrl && Boolean(doc.preprocessedUrl));
   const filter = isRealPreprocessed ? "none" : STAGE_FILTERS[stage];
 
   return (

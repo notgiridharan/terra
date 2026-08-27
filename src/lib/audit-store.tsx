@@ -11,14 +11,16 @@ import {
 import {
   formatSnapshot,
   seedAuditState,
-  SESSION_CAN_REVERT,
   SESSION_USER,
   type AuditState,
   type RecordVersion,
 } from "@/lib/audit";
+import { useAuth } from "@/lib/auth-store";
+import { canRevertOrConfigure } from "@/lib/auth";
 
 type AuditContextValue = AuditState & {
   revertToVersion: (versionId: string) => boolean;
+  canRevert: boolean;
 };
 
 const AuditContext = createContext<AuditContextValue | null>(null);
@@ -45,6 +47,11 @@ function load(): AuditState {
 export function AuditProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuditState>(seedAuditState);
   const [hydrated, setHydrated] = useState(false);
+  const { session } = useAuth();
+  const actingUser = session
+    ? `${session.name} (${session.employeeId})`
+    : SESSION_USER;
+  const canRevert = session ? canRevertOrConfigure(session.role) : false;
 
   useEffect(() => {
     setState(load());
@@ -57,7 +64,7 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, state]);
 
   const revertToVersion = useCallback((versionId: string) => {
-    if (!SESSION_CAN_REVERT) return false;
+    if (!canRevert) return false;
 
     setState((current) => {
       const target = current.versions.find((item) => item.id === versionId);
@@ -79,7 +86,7 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
         recordLabel: target.recordLabel,
         version: nextNumber,
         at: now,
-        user: SESSION_USER,
+        user: actingUser,
         summary: `Reverted to version ${target.version}.`,
         snapshot: { ...target.snapshot },
       };
@@ -87,7 +94,7 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       const revertEvent = {
         id: `evt-revert-${Date.now()}`,
         at: now,
-        user: SESSION_USER,
+        user: actingUser,
         actor: "Officer" as const,
         action: "Record reverted",
         record: target.recordLabel,
@@ -118,11 +125,11 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     });
 
     return true;
-  }, []);
+  }, [canRevert, actingUser]);
 
   const value = useMemo(
-    () => ({ ...state, revertToVersion }),
-    [state, revertToVersion],
+    () => ({ ...state, revertToVersion, canRevert }),
+    [state, revertToVersion, canRevert],
   );
 
   return (

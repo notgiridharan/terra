@@ -23,6 +23,9 @@ from sqlalchemy.orm import Session
 from ocr_service import run_ocr, UPLOADS_DIR, SUPPORTED_LANGS
 from database import init_db, get_db
 from db_models import LandRecordDB
+from preprocessing_service import run_pipeline as run_preprocessing_pipeline, SUPPORTED_EXTENSIONS as PREPROCESS_EXTENSIONS
+from validation_service import validate_record
+from schemas import ValidateRecordRequest
 import api_records
 
 
@@ -223,6 +226,67 @@ async def ocr_endpoint(
         "processing_ms": elapsed_ms,
         "forensics":     forensics_result,
     }
+
+
+# ---------------------------------------------------------------------------
+# Real OpenCV preprocessing endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/preprocess/{record_id}")
+def preprocess_endpoint(record_id: int, db: Session = Depends(get_db)) -> dict:
+    """
+    Run the real OpenCV pipeline (deskew, denoise, CLAHE enhancement, unsharp
+    restoration) on the image already stored for `record_id` and persist the
+    resulting stage image URLs + quality metrics onto the record.
+    """
+    record = db.query(LandRecordDB).filter(LandRecordDB.id == record_id).first()
+    if not record or not record.image_url:
+        raise HTTPException(status_code=404, detail=f"Record {record_id} or its source image not found")
+
+    suffix = Path(record.image_url).suffix.lower()
+    if suffix not in PREPROCESS_EXTENSIONS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Real OpenCV preprocessing only supports raster images ({', '.join(sorted(PREPROCESS_EXTENSIONS))}), not '{suffix}'.",
+        )
+
+    source_path = UPLOADS_DIR / Path(record.image_url).name
+    if not source_path.exists():
+        raise HTTPException(status_code=404, detail="Source image file missing on disk.")
+
+    try:
+        result = run_preprocessing_pipeline(source_path, record_id)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Preprocessing failed: {exc}")
+
+    meta = dict(record.ocr_metadata or {})
+    meta["preprocessing_pipeline"] = result
+    record.ocr_metadata = meta
+    db.commit()
+
+    return {"success": True, "record_id": record_id, **result}
+
+
+# ---------------------------------------------------------------------------
+# Land Records Validation Engine endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/validate-record")
+def validate_record_endpoint(
+    payload: ValidateRecordRequest, db: Session = Depends(get_db)
+) -> dict:
+    """
+    Run the Indian land-record business-rule validation engine
+    (area arithmetic, survey-number format, ownership chain of title,
+    date chronology, duplicate record) against a structured record and
+    return a PASSED/WARNING/CONFLICT outcome per rule plus a summary.
+    """
+    record = payload.model_dump()
+    return validate_record(record, db)
 
 
 # ---------------------------------------------------------------------------

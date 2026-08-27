@@ -10,12 +10,15 @@ Provides enterprise REST API endpoints to:
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from database import get_db
 from db_models import LandRecordDB
+from ocr_service import UPLOADS_DIR
 from schemas import (
     LandRecordCreate,
     LandRecordResponse,
@@ -24,6 +27,33 @@ from schemas import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["Government & GIS APIs"])
+
+
+def _delete_record_files(record: LandRecordDB) -> None:
+    """
+    Best-effort cleanup of every file persisted on disk for a land record —
+    the original upload, the preprocessed copy, and any real OpenCV
+    pipeline stage images — so deleting a record doesn't leave orphaned
+    files behind in backend/uploads/.
+    """
+    candidates: list[Path] = []
+    if record.image_url:
+        candidates.append(UPLOADS_DIR / Path(record.image_url).name)
+
+    meta = record.ocr_metadata or {}
+    preprocessed_url = meta.get("preprocessed_url")
+    if preprocessed_url:
+        candidates.append(UPLOADS_DIR / Path(preprocessed_url).name)
+
+    for path in candidates:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    stage_dir = UPLOADS_DIR / "preprocess" / str(record.id)
+    if stage_dir.exists():
+        shutil.rmtree(stage_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +165,7 @@ def delete_record(record_id: int, db: Session = Depends(get_db)):
     record = db.query(LandRecordDB).filter(LandRecordDB.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail=f"Land record {record_id} not found")
+    _delete_record_files(record)
     db.delete(record)
     db.commit()
     return None

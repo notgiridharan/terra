@@ -4,9 +4,44 @@ import {
   DOCUMENT_STATUSES,
   formatFileSize,
   formatUploadedAt,
+  type LandDocument,
 } from "@/lib/documents";
 import { useDocuments } from "@/lib/documents-store";
 import { StatusBadge } from "@/components/documents/StatusBadge";
+
+function StorageBadge({ doc }: { doc: LandDocument }) {
+  if (doc.dbId) {
+    return (
+      <span
+        title="Persisted to the TerraLens database — survives a page refresh or server restart."
+        className="inline-flex items-center gap-1.5 rounded-sm border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+        DB #{doc.dbId}
+      </span>
+    );
+  }
+  if (doc.id.startsWith("temp-")) {
+    return (
+      <span
+        title="Upload in progress — not yet saved to the database."
+        className="inline-flex items-center gap-1.5 rounded-sm border border-tl-gold/40 bg-tl-gold/10 px-2 py-0.5 text-[11px] font-medium text-tl-gold"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+        Saving…
+      </span>
+    );
+  }
+  return (
+    <span
+      title="Sample/demo record — not backed by a database row."
+      className="inline-flex items-center gap-1.5 rounded-sm border border-tl-border px-2 py-0.5 text-[11px] font-medium text-tl-muted"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      Local only
+    </span>
+  );
+}
 
 export function DocumentsTable() {
   const { documents, deleteDocument } = useDocuments();
@@ -52,6 +87,7 @@ export function DocumentsTable() {
               <th className="px-5 py-2.5 font-medium">Size</th>
               <th className="px-5 py-2.5 font-medium">Uploaded</th>
               <th className="px-5 py-2.5 font-medium">Status</th>
+              <th className="px-5 py-2.5 font-medium">Storage</th>
               <th className="px-5 py-2.5 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -59,7 +95,7 @@ export function DocumentsTable() {
             {documents.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-5 py-10 text-center text-tl-muted"
                 >
                   No documents in the queue. Upload a PDF, image, or scan to
@@ -87,6 +123,9 @@ export function DocumentsTable() {
                   </td>
                   <td className="px-5 py-3">
                     <StatusBadge status={doc.status} />
+                  </td>
+                  <td className="px-5 py-3">
+                    <StorageBadge doc={doc} />
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button

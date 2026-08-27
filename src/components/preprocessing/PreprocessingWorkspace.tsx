@@ -73,8 +73,10 @@ export function PreprocessingWorkspace() {
           Document preprocessing
         </h2>
         <p className="mt-1 max-w-3xl text-[13px] leading-5 text-tl-muted">
-          Mock deskew, noise removal, enhancement, and text restoration. Visual
-          filters stand in for OpenCV until the real engine is connected.
+          Real OpenCV deskew, denoising, CLAHE enhancement, and unsharp-mask
+          text restoration, with objective before/after quality metrics. PDFs
+          fall back to a simulated preview since the pipeline decodes raster
+          images only.
         </p>
       </div>
 
@@ -129,9 +131,18 @@ export function PreprocessingWorkspace() {
             />
             <StagePreview
               title="After"
-              caption="Enhanced by OpenCV"
+              caption={
+                selected.preprocessing.engine === "mock"
+                  ? "Simulated (PDF — OpenCV pipeline needs a raster image)"
+                  : "Enhanced by OpenCV"
+              }
               document={selected}
-              previewUrl={selected.preprocessedUrl || selected.imageUrl || previewUrls[selected.id]}
+              previewUrl={
+                selected.preprocessing.stageUrls?.[viewStage] ||
+                selected.preprocessedUrl ||
+                selected.imageUrl ||
+                previewUrls[selected.id]
+              }
               stage={viewStage}
             />
           </div>

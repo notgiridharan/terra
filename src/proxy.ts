@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isPublicPath, parseSession, SESSION_COOKIE } from "@/lib/auth";
+import {
+  canAccessRoute,
+  isPublicPath,
+  landingRouteFor,
+  parseSession,
+  SESSION_COOKIE,
+} from "@/lib/auth";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -16,6 +22,14 @@ export function proxy(request: NextRequest) {
 
   if (session && publicPath) {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  if (session && !publicPath && !canAccessRoute(session.role, pathname)) {
+    const redirectTo = request.nextUrl.clone();
+    redirectTo.pathname = landingRouteFor(session.role);
+    redirectTo.search = "";
+    redirectTo.searchParams.set("access_denied", pathname);
+    return NextResponse.redirect(redirectTo);
   }
 
   return NextResponse.next();
