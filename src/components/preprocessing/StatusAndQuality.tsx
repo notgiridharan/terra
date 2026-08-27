@@ -25,7 +25,7 @@ export function StatusAndQuality({
             </h3>
           </div>
           <span className="rounded-sm border border-tl-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-tl-muted">
-            Mock OpenCV
+            {state.engine === "mock" ? "Simulated (PDF)" : "OpenCV"}
           </span>
         </div>
         <div className="px-4 py-4">

@@ -166,3 +166,33 @@ export async function fetchGisGeoJSON(): Promise<{ type: string; features: any[]
   return res.json() as Promise<{ type: string; features: any[] }>;
 }
 
+// ---------------------------------------------------------------------------
+// Real OpenCV preprocessing helper
+// ---------------------------------------------------------------------------
+
+export interface PreprocessQuality {
+  score: number;
+  label: string;
+  skewDegrees: number;
+  noiseIndex: number;
+  contrast: number;
+  readability: number;
+}
+
+export interface PreprocessResponse {
+  success: boolean;
+  record_id: number;
+  qualityBefore: PreprocessQuality;
+  qualityAfter: PreprocessQuality;
+  stageUrls: Record<string, string>;
+}
+
+export async function runOpenCvPreprocessing(recordId: number): Promise<PreprocessResponse> {
+  const res = await fetch(`${API_BASE}/api/preprocess/${recordId}`, { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<PreprocessResponse>;
+}
+
