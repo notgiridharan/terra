@@ -425,3 +425,132 @@ export function seedAuditState(): AuditState {
     currentVersionId: { ...SEED_CURRENT_VERSION },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Compliance export — CSV + print-to-PDF
+// ---------------------------------------------------------------------------
+
+const CONFIDENCE_RE = /\((\d{1,3})\s*%\)/;
+
+/** Pulls an AI confidence score (e.g. "92" from "Sale deed (92%)") out of an event, when present. */
+export function extractConfidence(event: AuditEvent): number | null {
+  const match = `${event.newValue} ${event.oldValue}`.match(CONFIDENCE_RE);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function csvRow(cells: (string | number)[]): string {
+  return cells.map(csvCell).join(",");
+}
+
+/**
+ * Builds a single compliance-report CSV combining the officer/AI/system
+ * event log (with AI confidence scores extracted into their own column)
+ * and the full record edit/version history — suitable for regulator or
+ * internal audit export.
+ */
+export function buildComplianceCSV(
+  events: AuditEvent[],
+  versions: RecordVersion[],
+): string {
+  const eventHeader = [
+    "Timestamp",
+    "User",
+    "Actor",
+    "Action",
+    "Record",
+    "Record ID",
+    "Old Value",
+    "New Value",
+    "AI Confidence",
+  ];
+  const eventRows = events.map((event) => {
+    const confidence = extractConfidence(event);
+    return csvRow([
+      event.at,
+      event.user,
+      event.actor,
+      event.action,
+      event.record,
+      event.recordId,
+      event.oldValue,
+      event.newValue,
+      confidence !== null ? `${confidence}%` : "",
+    ]);
+  });
+
+  const versionHeader = [
+    "Record",
+    "Record ID",
+    "Version",
+    "Timestamp",
+    "User",
+    "Owner",
+    "Survey Number",
+    "Area",
+    "Village",
+    "Status",
+    "Summary",
+  ];
+  const versionRows = versions
+    .slice()
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+    .map((v) =>
+      csvRow([
+        v.recordLabel,
+        v.recordId,
+        v.version,
+        v.at,
+        v.user,
+        v.snapshot.owner,
+        v.snapshot.surveyNumber,
+        v.snapshot.area,
+        v.snapshot.village,
+        v.snapshot.status,
+        v.summary,
+      ]),
+    );
+
+  return [
+    "EVENT LOG (officer decisions, AI actions, system updates)",
+    csvRow(eventHeader),
+    ...eventRows,
+    "",
+    "RECORD EDIT HISTORY (versioned snapshots)",
+    csvRow(versionHeader),
+    ...versionRows,
+  ].join("\r\n");
+}
+
+/** Triggers a browser download of `content` as a file named `filename`. */
+export function downloadTextFile(
+  filename: string,
+  content: string,
+  mimeType: string,
+): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadComplianceCSV(
+  events: AuditEvent[],
+  versions: RecordVersion[],
+): void {
+  // UTF-8 BOM so Excel opens the export with correct encoding.
+  const csv = "﻿" + buildComplianceCSV(events, versions);
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  downloadTextFile(`terralens-audit-compliance-${stamp}.csv`, csv, "text/csv;charset=utf-8");
+}

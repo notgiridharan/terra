@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AUDIT_ACTORS,
+  downloadComplianceCSV,
   formatAuditTime,
   searchEvents,
   SESSION_CAN_REVERT,
@@ -12,6 +13,7 @@ import {
   type AuditEvent,
 } from "@/lib/audit";
 import { useAudit } from "@/lib/audit-store";
+import { ComplianceReportPrint } from "@/components/audit-logs/ComplianceReportPrint";
 
 export function AuditLogsWorkspace() {
   const { events, versions, currentVersionId, revertToVersion } = useAudit();
@@ -24,6 +26,8 @@ export function AuditLogsWorkspace() {
     () => searchEvents(events, query, actor),
     [events, query, actor],
   );
+
+  const filterSummary = `Actor: ${actor === "all" ? "All" : actor}${query ? ` · Search: "${query}"` : ""}`;
   const selected: AuditEvent | null =
     rows.find((row) => row.id === selectedEventId) ?? rows[0] ?? null;
 
@@ -41,16 +45,35 @@ export function AuditLogsWorkspace() {
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
-      <div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-tl-muted">
-          Compliance trail
-        </p>
-        <h2 className="mt-1 text-lg font-semibold text-tl-text">Audit logs</h2>
-        <p className="mt-1 max-w-3xl text-[13px] leading-5 text-tl-muted">
-          Every AI and officer action on the pipeline. Logs are append-only.
-          Revert writes a new version and a new audit row; it does not erase
-          history. Session: {SESSION_USER}.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-tl-muted">
+            Compliance trail
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-tl-text">Audit logs</h2>
+          <p className="mt-1 max-w-3xl text-[13px] leading-5 text-tl-muted">
+            Every AI and officer action on the pipeline. Logs are append-only.
+            Revert writes a new version and a new audit row; it does not erase
+            history. Session: {SESSION_USER}.
+          </p>
+        </div>
+
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => downloadComplianceCSV(rows, versions)}
+            className="border border-tl-border px-3 py-1.5 text-[12px] font-medium uppercase tracking-[0.1em] text-tl-text hover:border-tl-gold/40 hover:text-tl-gold"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="border border-tl-gold/50 bg-tl-gold/15 px-3 py-1.5 text-[12px] font-medium uppercase tracking-[0.1em] text-tl-gold hover:bg-tl-gold/20"
+          >
+            Export PDF report
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -232,6 +255,14 @@ export function AuditLogsWorkspace() {
           )}
         </aside>
       </div>
+
+      <ComplianceReportPrint
+        events={rows}
+        versions={versions}
+        generatedAt={formatAuditTime(new Date().toISOString())}
+        filterSummary={filterSummary}
+        sessionUser={SESSION_USER}
+      />
     </div>
   );
 }

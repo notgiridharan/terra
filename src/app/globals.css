@@ -29,3 +29,20 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* Compliance report export: hide the app chrome and show only the
+   .compliance-report block when printing / saving as PDF. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .compliance-report,
+  .compliance-report * {
+    visibility: visible;
+  }
+  .compliance-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}
